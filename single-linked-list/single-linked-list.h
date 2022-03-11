@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -16,7 +17,6 @@ class SingleLinkedList {
         Type value;
         Node* next_node = nullptr;
     };
-
 
     // Шаблон класса «Базовый Итератор».
         // Определяет поведение итератора на элементы односвязного списка
@@ -87,9 +87,8 @@ class SingleLinkedList {
         // Возвращает ссылку на самого себя
         // Инкремент итератора, не указывающего на существующий элемент списка, приводит к неопределённому поведению
         BasicIterator& operator++() noexcept {
-            if (node_) {
-                node_ = node_->next_node;
-            }
+            assert(node_ != nullptr);
+            node_ = node_->next_node;
             return *this;
         }
 
@@ -98,6 +97,7 @@ class SingleLinkedList {
         // Инкремент итератора, не указывающего на существующий элемент списка,
         // приводит к неопределённому поведению
         BasicIterator operator++(int) noexcept {
+            assert(node_ != nullptr);
             auto old_value(*this);
             ++(*this);
             return old_value;
@@ -107,6 +107,7 @@ class SingleLinkedList {
         // Вызов этого оператора у итератора, не указывающего на существующий элемент списка,
         // приводит к неопределённому поведению
         [[nodiscard]] reference operator*() const noexcept {
+            assert(node_ != nullptr);
             return node_->value;
         }
 
@@ -114,6 +115,7 @@ class SingleLinkedList {
         // Вызов этого оператора у итератора, не указывающего на существующий элемент списка,
         // приводит к неопределённому поведению
         [[nodiscard]] pointer operator->() const noexcept {
+            assert(node_ != nullptr);
             return &(node_->value);
         }
 
@@ -138,20 +140,11 @@ public:
     }
 
     SingleLinkedList(std::initializer_list<Type> values) {
-        Clear();
-        SingleLinkedList tmp;
-        Init(tmp, values.begin(), values.end());
-        tmp.size_ = values.size();
-        swap(tmp);
+        Init(values);
     }
 
-
     SingleLinkedList(const SingleLinkedList& other) {
-        Clear();
-        SingleLinkedList tmp;
-        Init(tmp, other.begin(), other.end());
-        tmp.size_ = other.size_;
-        swap(tmp);
+        Init(other);
     }
 
     SingleLinkedList& operator=(const SingleLinkedList& rhs) {
@@ -235,6 +228,7 @@ public:
      * Если при создании элемента будет выброшено исключение, список останется в прежнем состоянии
      */
     Iterator InsertAfter(ConstIterator pos, const Type& value) {
+        assert(pos.node_ != nullptr);
         Node* new_node = new Node(value, pos.node_->next_node);
         pos.node_->next_node = new_node;
         ++size_;
@@ -242,12 +236,11 @@ public:
     }
 
     void PopFront() noexcept {
-        if (!IsEmpty()) {
-            Node* pop_node = head_.next_node;
-            head_.next_node = pop_node->next_node;
-            delete pop_node;
-            --size_;
-        }
+        assert(head_.next_node != nullptr);
+        Node* pop_node = head_.next_node;
+        head_.next_node = pop_node->next_node;
+        delete pop_node;
+        --size_;
     }
 
     /*
@@ -255,14 +248,12 @@ public:
      * Возвращает итератор на элемент, следующий за удалённым
      */
     Iterator EraseAfter(ConstIterator pos) noexcept {
+        assert(pos.node_->next_node != nullptr);
         Node* erase_node = pos.node_->next_node;
-        if (erase_node) {
-            pos.node_->next_node = erase_node->next_node;
-            delete erase_node;
-            --size_;
-            return Iterator{ pos.node_->next_node };
-        }
-        return Iterator{ nullptr };
+        pos.node_->next_node = erase_node->next_node;
+        delete erase_node;
+        --size_;
+        return Iterator{ pos.node_->next_node };
     }
 
     // Вставляет элемент value в начало списка за время O(1)
@@ -286,6 +277,10 @@ public:
         }
     }
 
+    [[nodiscard]] size_t size() const noexcept {
+        return size_;
+    }
+
     ~SingleLinkedList() {
         Clear();
     }
@@ -295,11 +290,13 @@ private:
     Node head_;
     size_t size_;
 
-    template <typename It>
-    void Init(SingleLinkedList& tmp_list, It begin, It end) {
+    template <typename InitList>
+    void Init(InitList list) {
+        Clear();
+        SingleLinkedList tmp_list;
         Node* lastNode = nullptr;
-        auto it = begin;
-        while (it != end) {
+        auto it = list.begin();
+        while (it != list.end()) {
             Node* newNode = new Node(*it, nullptr);
 
             if (lastNode) {
@@ -312,6 +309,8 @@ private:
             lastNode = newNode;
             ++it;
         }
+        tmp_list.size_ = list.size();
+        swap(tmp_list);
     }
 
 };
